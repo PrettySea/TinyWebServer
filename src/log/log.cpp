@@ -149,7 +149,7 @@ void Log::write_log(int level, const char* format, ...)
 
     // 写入的具体时间内容格式
     int n = sprintf(m_buf,
-                    "%d-%02d-%02d %02d:%02d:%02d.%06ld [%s]: %s:%d ",
+                    "%d-%02d-%02d %02d:%02d:%02d.%06ld [%s]: ",
                     my_tm.tm_year + 1900,
                     my_tm.tm_mon + 1,
                     my_tm.tm_mday,
@@ -157,9 +157,7 @@ void Log::write_log(int level, const char* format, ...)
                     my_tm.tm_min,
                     my_tm.tm_sec,
                     now.tv_usec,
-                    s,
-                    __FILE__,
-                    __LINE__);
+                    s);
 
     int m = vsnprintf(m_buf + n, m_log_buf_size - n - 1, format, valst);
     m_buf[n + m] = '\n';
