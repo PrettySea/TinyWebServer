@@ -1,15 +1,15 @@
-#include "lst_timer.h"
+#include "utils.h"
 
-#include "http/http_conn.h"
+USE_TINYWEBSERVER_NAMESPACE
 
-sort_timer_lst::sort_timer_lst()
+TimerManager::TimerManager()
 {
     head = NULL;
     tail = NULL;
 }
-sort_timer_lst::~sort_timer_lst()
+TimerManager::~TimerManager()
 {
-    util_timer* tmp = head;
+    UtilTimer* tmp = head;
     while (tmp) {
         head = tmp->next;
         delete tmp;
@@ -17,7 +17,7 @@ sort_timer_lst::~sort_timer_lst()
     }
 }
 
-void sort_timer_lst::add_timer(util_timer* timer)
+void TimerManager::add_timer(UtilTimer* timer)
 {
     if (!timer) {
         return;
@@ -34,12 +34,13 @@ void sort_timer_lst::add_timer(util_timer* timer)
     }
     add_timer(timer, head);
 }
-void sort_timer_lst::adjust_timer(util_timer* timer)
+
+void TimerManager::adjust_timer(UtilTimer* timer)
 {
     if (!timer) {
         return;
     }
-    util_timer* tmp = timer->next;
+    UtilTimer* tmp = timer->next;
     if (!tmp || (timer->expire < tmp->expire)) {
         return;
     }
@@ -54,7 +55,7 @@ void sort_timer_lst::adjust_timer(util_timer* timer)
         add_timer(timer, timer->next);
     }
 }
-void sort_timer_lst::del_timer(util_timer* timer)
+void TimerManager::del_timer(UtilTimer* timer)
 {
     if (!timer) {
         return;
@@ -81,14 +82,14 @@ void sort_timer_lst::del_timer(util_timer* timer)
     timer->next->prev = timer->prev;
     delete timer;
 }
-void sort_timer_lst::tick()
+void TimerManager::tick()
 {
     if (!head) {
         return;
     }
 
     time_t cur = time(NULL);
-    util_timer* tmp = head;
+    UtilTimer* tmp = head;
     while (tmp) {
         if (cur < tmp->expire) {
             break;
@@ -103,10 +104,10 @@ void sort_timer_lst::tick()
     }
 }
 
-void sort_timer_lst::add_timer(util_timer* timer, util_timer* lst_head)
+void TimerManager::add_timer(UtilTimer* timer, UtilTimer* lst_head)
 {
-    util_timer* prev = lst_head;
-    util_timer* tmp = prev->next;
+    UtilTimer* prev = lst_head;
+    UtilTimer* tmp = prev->next;
     while (tmp) {
         if (timer->expire < tmp->expire) {
             prev->next = timer;
@@ -157,6 +158,9 @@ void Utils::addfd(int epollfd, int fd, bool one_shot, int TRIGMode)
     setnonblocking(fd);
 }
 
+int* Utils::u_pipefd = nullptr;
+int Utils::u_epollfd = 0;
+
 //信号处理函数
 void Utils::sig_handler(int sig)
 {
@@ -192,14 +196,10 @@ void Utils::show_error(int connfd, const char* info)
     close(connfd);
 }
 
-int* Utils::u_pipefd = 0;
-int Utils::u_epollfd = 0;
-
-class Utils;
-void cb_func(client_data* user_data)
-{
-    epoll_ctl(Utils::u_epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0);
-    assert(user_data);
-    close(user_data->sockfd);
-    http_conn::m_user_count--;
-}
+// void inline cb_func(ClientData* user_data)
+// {
+//     epoll_ctl(Utils::u_epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0);
+//     assert(user_data);
+//     close(user_data->sockfd);
+//     HttpConn::m_user_count--;
+// }

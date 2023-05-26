@@ -3,6 +3,7 @@
 #include "http_conn.h"
 
 #include <mysql/mysql.h>
+USE_TINYWEBSERVER_NAMESPACE
 
 //定义http响应的一些状态信息
 const char* ok_200_title = "OK";
@@ -20,9 +21,9 @@ const char* error_500_form =
     "There was an unusual problem serving the request file.\n";
 
 locker m_lock;
-map<string, string> users;
+std::map<std::string, std::string> users;
 
-void http_conn::initmysql_result(connection_pool* connPool)
+void HttpConn::initmysql_result(connection_pool* connPool)
 {
     //先从连接池中取一个连接
     MYSQL* mysql = NULL;
@@ -44,8 +45,8 @@ void http_conn::initmysql_result(connection_pool* connPool)
 
     //从结果集中获取下一行，将对应的用户名和密码，存入map中
     while (MYSQL_ROW row = mysql_fetch_row(result)) {
-        string temp1(row[0]);
-        string temp2(row[1]);
+        std::string temp1(row[0]);
+        std::string temp2(row[1]);
         users[temp1] = temp2;
     }
 }
@@ -97,11 +98,11 @@ void modfd(int epollfd, int fd, int ev, int TRIGMode)
     epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &event);
 }
 
-int http_conn::m_user_count = 0;
-int http_conn::m_epollfd = -1;
+int HttpConn::m_user_count = 0;
+int HttpConn::m_epollfd = -1;
 
 //关闭连接，关闭一个连接，客户总量减一
-void http_conn::close_conn(bool real_close)
+void HttpConn::close_conn(bool real_close)
 {
     if (real_close && (m_sockfd != -1)) {
         printf("close %d\n", m_sockfd);
@@ -112,14 +113,14 @@ void http_conn::close_conn(bool real_close)
 }
 
 //初始化连接,外部调用初始化套接字地址
-void http_conn::init(int sockfd,
-                     const sockaddr_in& addr,
-                     char* root,
-                     int TRIGMode,
-                     int close_log,
-                     string user,
-                     string passwd,
-                     string sqlname)
+void HttpConn::init(int sockfd,
+                    const sockaddr_in& addr,
+                    char* root,
+                    int TRIGMode,
+                    int close_log,
+                    std::string user,
+                    std::string passwd,
+                    std::string sqlname)
 {
     m_sockfd = sockfd;
     m_address = addr;
@@ -141,7 +142,7 @@ void http_conn::init(int sockfd,
 
 //初始化新接受的连接
 // check_state默认为分析请求行状态
-void http_conn::init()
+void HttpConn::init()
 {
     mysql = NULL;
     bytes_to_send = 0;
@@ -169,7 +170,7 @@ void http_conn::init()
 
 //从状态机，用于分析出一行内容
 //返回值为行的读取状态，有LINE_OK,LINE_BAD,LINE_OPEN
-http_conn::LINE_STATUS http_conn::parse_line()
+HttpConn::LINE_STATUS HttpConn::parse_line()
 {
     char temp;
     for (; m_checked_idx < m_read_idx; ++m_checked_idx) {
@@ -197,7 +198,7 @@ http_conn::LINE_STATUS http_conn::parse_line()
 
 //循环读取客户数据，直到无数据可读或对方关闭连接
 //非阻塞ET工作模式下，需要一次性将数据读完
-bool http_conn::read_once()
+bool HttpConn::read_once()
 {
     if (m_read_idx >= READ_BUFFER_SIZE) {
         return false;
@@ -238,7 +239,7 @@ bool http_conn::read_once()
 }
 
 //解析http请求行，获得请求方法，目标url及http版本号
-http_conn::EHttpCode http_conn::parse_request_line(char* text)
+HttpConn::EHttpCode HttpConn::parse_request_line(char* text)
 {
     LOG_INFO("%s:%s:%d %s", __FILE__, __func__, __LINE__, text)
     m_url = strpbrk(text, " \t");
@@ -280,7 +281,7 @@ http_conn::EHttpCode http_conn::parse_request_line(char* text)
 }
 
 //解析http请求的一个头部信息
-http_conn::EHttpCode http_conn::parse_headers(char* text)
+HttpConn::EHttpCode HttpConn::parse_headers(char* text)
 {
     LOG_INFO("%s:%s:%d %s", __FILE__, __func__, __LINE__, text)
 
@@ -311,7 +312,7 @@ http_conn::EHttpCode http_conn::parse_headers(char* text)
 }
 
 //判断http请求是否被完整读入
-http_conn::EHttpCode http_conn::parse_content(char* text)
+HttpConn::EHttpCode HttpConn::parse_content(char* text)
 {
     LOG_INFO("%s:%s:%d %s", __FILE__, __func__, __LINE__, text)
 
@@ -324,7 +325,7 @@ http_conn::EHttpCode http_conn::parse_content(char* text)
     return NO_REQUEST;
 }
 
-http_conn::EHttpCode http_conn::process_read()
+HttpConn::EHttpCode HttpConn::process_read()
 {
     LINE_STATUS line_status = LINE_OK;
     EHttpCode ret = NO_REQUEST;
@@ -367,7 +368,7 @@ http_conn::EHttpCode http_conn::process_read()
     return NO_REQUEST;
 }
 
-http_conn::EHttpCode http_conn::do_request()
+HttpConn::EHttpCode HttpConn::do_request()
 {
     strcpy(m_real_file, doc_root);
     int len = strlen(doc_root);
@@ -412,7 +413,8 @@ http_conn::EHttpCode http_conn::do_request()
             if (users.find(name) == users.end()) {
                 m_lock.lock();
                 int res = mysql_query(mysql, sql_insert);
-                users.insert(pair<string, string>(name, password));
+                users.insert(
+                    std::pair<std::string, std::string>(name, password));
                 m_lock.unlock();
 
                 if (!res)
@@ -481,14 +483,14 @@ http_conn::EHttpCode http_conn::do_request()
     close(fd);
     return FILE_REQUEST;
 }
-void http_conn::unmap()
+void HttpConn::unmap()
 {
     if (m_file_address) {
         munmap(m_file_address, m_file_stat.st_size);
         m_file_address = 0;
     }
 }
-bool http_conn::write()
+bool HttpConn::write()
 {
     int temp = 0;
 
@@ -534,7 +536,7 @@ bool http_conn::write()
         }
     }
 }
-bool http_conn::add_response(const char* format, ...)
+bool HttpConn::add_response(const char* format, ...)
 {
     if (m_write_idx >= WRITE_BUFFER_SIZE)
         return false;
@@ -555,36 +557,36 @@ bool http_conn::add_response(const char* format, ...)
 
     return true;
 }
-bool http_conn::add_status_line(int status, const char* title)
+bool HttpConn::add_status_line(int status, const char* title)
 {
     return add_response("%s %d %s\r\n", "HTTP/1.1", status, title);
 }
-bool http_conn::add_headers(int content_len)
+bool HttpConn::add_headers(int content_len)
 {
     return add_content_length(content_len) && add_linger() && add_blank_line();
 }
-bool http_conn::add_content_length(int content_len)
+bool HttpConn::add_content_length(int content_len)
 {
     return add_response("Content-Length:%d\r\n", content_len);
 }
-bool http_conn::add_content_type()
+bool HttpConn::add_content_type()
 {
     return add_response("Content-Type:%s\r\n", "text/html");
 }
-bool http_conn::add_linger()
+bool HttpConn::add_linger()
 {
     return add_response("Connection:%s\r\n",
                         (m_linger == true) ? "keep-alive" : "close");
 }
-bool http_conn::add_blank_line()
+bool HttpConn::add_blank_line()
 {
     return add_response("%s", "\r\n");
 }
-bool http_conn::add_content(const char* content)
+bool HttpConn::add_content(const char* content)
 {
     return add_response("%s", content);
 }
-bool http_conn::process_write(EHttpCode ret)
+bool HttpConn::process_write(EHttpCode ret)
 {
     switch (ret) {
         case INTERNAL_ERROR: {
@@ -635,7 +637,7 @@ bool http_conn::process_write(EHttpCode ret)
     bytes_to_send = m_write_idx;
     return true;
 }
-void http_conn::process()
+void HttpConn::process()
 {
     EHttpCode read_ret = process_read();
     if (read_ret == NO_REQUEST) {

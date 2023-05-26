@@ -1,6 +1,5 @@
-#ifndef LST_TIMER
-#define LST_TIMER
-
+#ifndef UTILS_H
+#define UTILS_H
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -22,21 +21,22 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "http/http_conn.h"
 #include "log/log.h"
-
-class util_timer;
-
-struct client_data
+#include "tinywebserver/global.h"
+BEGIN_TINYWEBSERVER_NAMESPACE
+class UtilTimer;
+struct ClientData
 {
     sockaddr_in address;
     int sockfd;
-    util_timer* timer;
+    UtilTimer* timer;
 };
 
-class util_timer
+class UtilTimer
 {
   public:
-    util_timer()
+    UtilTimer()
         : prev(NULL)
         , next(NULL)
     {
@@ -45,34 +45,33 @@ class util_timer
   public:
     time_t expire;
 
-    void (*cb_func)(client_data*);
-    client_data* user_data;
-    util_timer* prev;
-    util_timer* next;
+    void (*cb_func)(ClientData*);
+    ClientData* user_data;
+    UtilTimer* prev;
+    UtilTimer* next;
 };
-
-class sort_timer_lst
+class TimerManager
 {
   public:
-    sort_timer_lst();
-    ~sort_timer_lst();
+    TimerManager();
+    ~TimerManager();
 
-    void add_timer(util_timer* timer);
-    void adjust_timer(util_timer* timer);
-    void del_timer(util_timer* timer);
+    void add_timer(UtilTimer* timer);
+    void adjust_timer(UtilTimer* timer);
+    void del_timer(UtilTimer* timer);
     void tick();
 
   private:
-    void add_timer(util_timer* timer, util_timer* lst_head);
+    void add_timer(UtilTimer* timer, UtilTimer* lst_head);
 
-    util_timer* head;
-    util_timer* tail;
+    UtilTimer* head;
+    UtilTimer* tail;
 };
 
 class Utils
 {
   public:
-    Utils() {}
+    Utils() = default;
     ~Utils() {}
 
     void init(int timeslot);
@@ -95,12 +94,21 @@ class Utils
     void show_error(int connfd, const char* info);
 
   public:
-    static int* u_pipefd;
-    sort_timer_lst m_timer_lst;
-    static int u_epollfd;
+    TimerManager m_timer_lst;
+
     int m_TIMESLOT;
+    static int* u_pipefd;
+    static int u_epollfd;
 };
 
-void cb_func(client_data* user_data);
+// void cb_func(ClientData* user_data);
 
+void inline cb_func(ClientData* user_data)
+{
+    epoll_ctl(Utils::u_epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0);
+    assert(user_data);
+    close(user_data->sockfd);
+    HttpConn::m_user_count--;
+}
+END_TINYWEBSERVER_NAMESPACE
 #endif

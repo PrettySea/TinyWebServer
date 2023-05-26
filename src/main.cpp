@@ -1,13 +1,13 @@
 #include "config/config.h"
 #include "tinywebserver/global.h"
-
+#include "webserver.h"
 USE_TINYWEBSERVER_NAMESPACE
 int main(int argc, char* argv[])
 {
     //需要修改的数据库信息,登录名,密码,库名
-    string user = "test";
-    string passwd = "Cyclone001!@#";
-    string databasename = "test";
+    std::string user = "test";
+    std::string passwd = "Cyclone001!@#";
+    std::string databasename = "test";
 
     //命令行解析
     Config config;

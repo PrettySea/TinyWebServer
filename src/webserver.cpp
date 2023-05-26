@@ -1,9 +1,9 @@
 #include "webserver.h"
-
+USE_TINYWEBSERVER_NAMESPACE
 WebServer::WebServer()
 {
     // http_conn类对象
-    users = new http_conn[MAX_FD];
+    users = new HttpConn[MAX_FD];
 
     // root文件夹路径
     char server_path[200];
@@ -14,7 +14,7 @@ WebServer::WebServer()
     strcat(m_root, root);
 
     //定时器
-    users_timer = new client_data[MAX_FD];
+    users_timer = new ClientData[MAX_FD];
 }
 
 WebServer::~WebServer()
@@ -29,9 +29,9 @@ WebServer::~WebServer()
 }
 
 void WebServer::init(int port,
-                     string user,
-                     string passWord,
-                     string databaseName,
+                     std::string user,
+                     std::string passWord,
+                     std::string databaseName,
                      int log_write,
                      int opt_linger,
                      int trigmode,
@@ -112,7 +112,7 @@ void WebServer::sql_pool()
 void WebServer::thread_pool()
 {
     //线程池
-    m_pool = new threadpool<http_conn>(m_actormodel, m_connPool, m_thread_num);
+    m_pool = new threadpool<HttpConn>(m_actormodel, m_connPool, m_thread_num);
 }
 
 void WebServer::eventListen()
@@ -152,7 +152,7 @@ void WebServer::eventListen()
     assert(m_epollfd != -1);
 
     utils.addfd(m_epollfd, m_listenfd, false, m_LISTENTrigmode);
-    http_conn::m_epollfd = m_epollfd;
+    HttpConn::m_epollfd = m_epollfd;
 
     ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_pipefd);
     assert(ret != -1);
@@ -185,7 +185,7 @@ void WebServer::timer(int connfd, struct sockaddr_in client_address)
     //创建定时器，设置回调函数和超时时间，绑定用户数据，将定时器添加到链表中
     users_timer[connfd].address = client_address;
     users_timer[connfd].sockfd = connfd;
-    util_timer* timer = new util_timer;
+    UtilTimer* timer = new UtilTimer;
     timer->user_data = &users_timer[connfd];
     timer->cb_func = cb_func;
     time_t cur = time(NULL);
@@ -196,7 +196,7 @@ void WebServer::timer(int connfd, struct sockaddr_in client_address)
 
 //若有数据传输，则将定时器往后延迟3个单位
 //并对新的定时器在链表上的位置进行调整
-void WebServer::adjust_timer(util_timer* timer)
+void WebServer::adjust_timer(UtilTimer* timer)
 {
     time_t cur = time(NULL);
     timer->expire = cur + 3 * TIMESLOT;
@@ -205,7 +205,7 @@ void WebServer::adjust_timer(util_timer* timer)
     LOG_INFO("%s", "adjust timer once");
 }
 
-void WebServer::deal_timer(util_timer* timer, int sockfd)
+void WebServer::deal_timer(UtilTimer* timer, int sockfd)
 {
     timer->cb_func(&users_timer[sockfd]);
     if (timer) {
@@ -226,7 +226,7 @@ bool WebServer::dealclinetdata()
             LOG_ERROR("%s:errno is:%d", "accept error", errno);
             return false;
         }
-        if (http_conn::m_user_count >= MAX_FD) {
+        if (HttpConn::m_user_count >= MAX_FD) {
             utils.show_error(connfd, "Internal server busy");
             LOG_ERROR("%s", "Internal server busy");
             return false;
@@ -244,7 +244,7 @@ bool WebServer::dealclinetdata()
                 LOG_ERROR("%s:errno is:%d", "accept error", errno);
                 break;
             }
-            if (http_conn::m_user_count >= MAX_FD) {
+            if (HttpConn::m_user_count >= MAX_FD) {
                 utils.show_error(connfd, "Internal server busy");
                 LOG_ERROR("%s", "Internal server busy");
                 break;
@@ -285,7 +285,7 @@ bool WebServer::dealwithsignal(bool& timeout, bool& stop_server)
 
 void WebServer::dealwithread(int sockfd)
 {
-    util_timer* timer = users_timer[sockfd].timer;
+    UtilTimer* timer = users_timer[sockfd].timer;
 
     // reactor
     if (1 == m_actormodel) {
@@ -326,7 +326,7 @@ void WebServer::dealwithread(int sockfd)
 
 void WebServer::dealwithwrite(int sockfd)
 {
-    util_timer* timer = users_timer[sockfd].timer;
+    UtilTimer* timer = users_timer[sockfd].timer;
     // reactor
     if (1 == m_actormodel) {
         if (timer) {
@@ -382,7 +382,7 @@ void WebServer::eventLoop()
                     continue;
             } else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                 //服务器端关闭连接，移除对应的定时器
-                util_timer* timer = users_timer[sockfd].timer;
+                UtilTimer* timer = users_timer[sockfd].timer;
                 deal_timer(timer, sockfd);
             }
             //处理信号

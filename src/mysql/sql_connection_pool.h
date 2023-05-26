@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <list>
-#include <string>
 
 #include <error.h>
 #include <mysql/mysql.h>
@@ -12,9 +11,8 @@
 
 #include "lock/locker.h"
 #include "log/log.h"
-
-using namespace std;
-
+#include "tinywebserver/global.h"
+BEGIN_TINYWEBSERVER_NAMESPACE
 class connection_pool
 {
   public:
@@ -26,10 +24,10 @@ class connection_pool
     //单例模式
     static connection_pool* GetInstance();
 
-    void init(string url,
-              string User,
-              string PassWord,
-              string DataBaseName,
+    void init(std::string url,
+              std::string User,
+              std::string PassWord,
+              std::string DataBaseName,
               int Port,
               int MaxConn,
               int close_log);
@@ -42,15 +40,15 @@ class connection_pool
     int m_CurConn;  //当前已使用的连接数
     int m_FreeConn;  //当前空闲的连接数
     locker lock;
-    list<MYSQL*> connList;  //连接池
+    std::list<MYSQL*> connList;  //连接池
     sem reserve;
 
   public:
-    string m_url;  //主机地址
-    string m_Port;  //数据库端口号
-    string m_User;  //登陆数据库用户名
-    string m_PassWord;  //登陆数据库密码
-    string m_DatabaseName;  //使用数据库名
+    std::string m_url;  //主机地址
+    std::string m_Port;  //数据库端口号
+    std::string m_User;  //登陆数据库用户名
+    std::string m_PassWord;  //登陆数据库密码
+    std::string m_DatabaseName;  //使用数据库名
     int m_close_log;  //日志开关
 };
 
@@ -64,5 +62,5 @@ class connectionRAII
     MYSQL* conRAII;
     connection_pool* poolRAII;
 };
-
+END_TINYWEBSERVER_NAMESPACE
 #endif

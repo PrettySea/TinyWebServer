@@ -9,7 +9,8 @@
 
 #include "lock/locker.h"
 #include "mysql/sql_connection_pool.h"
-
+#include "tinywebserver/global.h"
+BEGIN_TINYWEBSERVER_NAMESPACE
 template<typename T>
 class threadpool
 {
@@ -143,4 +144,5 @@ void threadpool<T>::run()
         }
     }
 }
+END_TINYWEBSERVER_NAMESPACE
 #endif

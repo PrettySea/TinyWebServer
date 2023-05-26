@@ -13,8 +13,8 @@
 #include <sys/time.h>
 
 #include "lock/locker.h"
-using namespace std;
-
+#include "tinywebserver/global.h"
+BEGIN_TINYWEBSERVER_NAMESPACE
 template<class T>
 class block_queue
 {
@@ -194,5 +194,5 @@ class block_queue
     int m_front;
     int m_back;
 };
-
+END_TINYWEBSERVER_NAMESPACE
 #endif

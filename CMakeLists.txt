@@ -11,12 +11,13 @@ project(webServer)
 # endif()
 set(SRCS
     ./src/http/http_conn.cpp
-    ./src/config/config.cpp
-    ./src/timer/lst_timer.cpp
-    ./src/mysql/sql_connection_pool.cpp
-    ./src/log/log.cpp
     ./src/webserver.cpp
-    ./src/main.cpp)
+    ./src/config/config.cpp
+    ./src/mysql/sql_connection_pool.cpp
+    ./src/main.cpp
+    ./src/utils/utils.cpp
+    ./src/log/log.cpp
+)
 
 add_executable(${PROJECT_NAME} ${SRCS})
 

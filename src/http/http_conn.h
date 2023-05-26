@@ -25,9 +25,9 @@
 #include "lock/locker.h"
 #include "log/log.h"
 #include "mysql/sql_connection_pool.h"
-#include "timer/lst_timer.h"
-
-class http_conn
+#include "tinywebserver/global.h"
+BEGIN_TINYWEBSERVER_NAMESPACE
+class HttpConn
 {
   public:
     static const int FILENAME_LEN = 200;
@@ -70,8 +70,8 @@ class http_conn
     };
 
   public:
-    http_conn() {}
-    ~http_conn() {}
+    HttpConn() {}
+    ~HttpConn() {}
 
   public:
     void init(int sockfd,
@@ -79,9 +79,9 @@ class http_conn
               char*,
               int,
               int,
-              string user,
-              string passwd,
-              string sqlname);
+              std::string user,
+              std::string passwd,
+              std::string sqlname);
     void close_conn(bool real_close = true);
     void process();
     bool read_once();
@@ -144,7 +144,7 @@ class http_conn
     int bytes_have_send;
     char* doc_root;
 
-    map<string, string> m_users;
+    std::map<std::string, std::string> m_users;
     int m_TRIGMode;
     int m_close_log;
 
@@ -152,5 +152,5 @@ class http_conn
     char sql_passwd[100];
     char sql_name[100];
 };
-
+END_TINYWEBSERVER_NAMESPACE
 #endif
