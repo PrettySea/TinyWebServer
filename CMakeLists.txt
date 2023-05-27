@@ -9,6 +9,7 @@ project(webServer)
 # if(${res})
 # message(FATAL_ERROR "find source file error")
 # endif()
+set(CMAKE_BUILD_TYPE "Debug")
 set(SRCS
     ./src/http/http_conn.cpp
     ./src/webserver.cpp

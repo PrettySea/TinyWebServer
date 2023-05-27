@@ -8,7 +8,7 @@ WebServer::WebServer()
     // root文件夹路径
     char server_path[200];
     getcwd(server_path, 200);
-    char root[6] = "/root";
+    char root[255] = "/src/root";
     m_root = (char*)malloc(strlen(server_path) + strlen(root) + 1);
     strcpy(m_root, server_path);
     strcat(m_root, root);
@@ -117,57 +117,61 @@ void WebServer::thread_pool()
 
 void WebServer::eventListen()
 {
-    //网络编程基础步骤
-    m_listenfd = socket(PF_INET, SOCK_STREAM, 0);
-    assert(m_listenfd >= 0);
+    try {
+        //网络编程基础步骤
+        m_listenfd = socket(PF_INET, SOCK_STREAM, 0);
+        assert(m_listenfd >= 0);
 
-    //优雅关闭连接
-    if (0 == m_OPT_LINGER) {
-        struct linger tmp = {0, 1};
-        setsockopt(m_listenfd, SOL_SOCKET, SO_LINGER, &tmp, sizeof(tmp));
-    } else if (1 == m_OPT_LINGER) {
-        struct linger tmp = {1, 1};
-        setsockopt(m_listenfd, SOL_SOCKET, SO_LINGER, &tmp, sizeof(tmp));
+        //优雅关闭连接
+        if (0 == m_OPT_LINGER) {
+            struct linger tmp = {0, 1};
+            setsockopt(m_listenfd, SOL_SOCKET, SO_LINGER, &tmp, sizeof(tmp));
+        } else if (1 == m_OPT_LINGER) {
+            struct linger tmp = {1, 1};
+            setsockopt(m_listenfd, SOL_SOCKET, SO_LINGER, &tmp, sizeof(tmp));
+        }
+
+        int ret = 0;
+        struct sockaddr_in address;
+        bzero(&address, sizeof(address));
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = htonl(INADDR_ANY);
+        address.sin_port = htons(m_port);
+
+        int flag = 1;
+        setsockopt(m_listenfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
+        ret = bind(m_listenfd, (struct sockaddr*)&address, sizeof(address));
+        assert(ret >= 0);
+        ret = listen(m_listenfd, 5);
+        assert(ret >= 0);
+
+        utils.init(TIMESLOT);
+
+        // epoll创建内核事件表
+        epoll_event events[MAX_EVENT_NUMBER];
+        m_epollfd = epoll_create(5);
+        assert(m_epollfd != -1);
+
+        utils.addfd(m_epollfd, m_listenfd, false, m_LISTENTrigmode);
+        HttpConn::m_epollfd = m_epollfd;
+
+        ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_pipefd);
+        assert(ret != -1);
+        utils.setnonblocking(m_pipefd[1]);
+        utils.addfd(m_epollfd, m_pipefd[0], false, 0);
+
+        utils.addsig(SIGPIPE, SIG_IGN);
+        utils.addsig(SIGALRM, utils.sig_handler, false);
+        utils.addsig(SIGTERM, utils.sig_handler, false);
+
+        alarm(TIMESLOT);
+
+        //工具类,信号和描述符基础操作
+        Utils::u_pipefd = m_pipefd;
+        Utils::u_epollfd = m_epollfd;
+    } catch (std::exception& e) {
+        std::cout << e.what() << std::endl;
     }
-
-    int ret = 0;
-    struct sockaddr_in address;
-    bzero(&address, sizeof(address));
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_ANY);
-    address.sin_port = htons(m_port);
-
-    int flag = 1;
-    setsockopt(m_listenfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
-    ret = bind(m_listenfd, (struct sockaddr*)&address, sizeof(address));
-    assert(ret >= 0);
-    ret = listen(m_listenfd, 5);
-    assert(ret >= 0);
-
-    utils.init(TIMESLOT);
-
-    // epoll创建内核事件表
-    epoll_event events[MAX_EVENT_NUMBER];
-    m_epollfd = epoll_create(5);
-    assert(m_epollfd != -1);
-
-    utils.addfd(m_epollfd, m_listenfd, false, m_LISTENTrigmode);
-    HttpConn::m_epollfd = m_epollfd;
-
-    ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_pipefd);
-    assert(ret != -1);
-    utils.setnonblocking(m_pipefd[1]);
-    utils.addfd(m_epollfd, m_pipefd[0], false, 0);
-
-    utils.addsig(SIGPIPE, SIG_IGN);
-    utils.addsig(SIGALRM, utils.sig_handler, false);
-    utils.addsig(SIGTERM, utils.sig_handler, false);
-
-    alarm(TIMESLOT);
-
-    //工具类,信号和描述符基础操作
-    Utils::u_pipefd = m_pipefd;
-    Utils::u_epollfd = m_epollfd;
 }
 
 void WebServer::timer(int connfd, struct sockaddr_in client_address)
@@ -223,7 +227,10 @@ bool WebServer::dealclinetdata()
         int connfd = accept(
             m_listenfd, (struct sockaddr*)&client_address, &client_addrlength);
         if (connfd < 0) {
-            LOG_ERROR("%s:errno is:%d", "accept error", errno);
+            LOG_ERROR("%s:errno is:%d, errMsg: %s",
+                      "accept error",
+                      errno,
+                      strerror(errno));
             return false;
         }
         if (HttpConn::m_user_count >= MAX_FD) {
@@ -286,7 +293,7 @@ bool WebServer::dealwithsignal(bool& timeout, bool& stop_server)
 void WebServer::dealwithread(int sockfd)
 {
     UtilTimer* timer = users_timer[sockfd].timer;
-
+    LOG_INFO("%d", m_actormodel)
     // reactor
     if (1 == m_actormodel) {
         if (timer) {

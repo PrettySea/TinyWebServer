@@ -235,13 +235,14 @@ bool HttpConn::read_once()
             m_read_idx += bytes_read;
         }
     }
+    LOG_INFO("%s", m_read_buf)
     return true;
 }
 
 //解析http请求行，获得请求方法，目标url及http版本号
 HttpConn::EHttpCode HttpConn::parse_request_line(char* text)
 {
-    LOG_INFO("%s:%s:%d %s", __FILE__, __func__, __LINE__, text)
+    LOG_INFO("%s:%d %s", __func__, __LINE__, text)
     m_url = strpbrk(text, " \t");
     if (!m_url) {
         return BAD_REQUEST;
@@ -283,7 +284,7 @@ HttpConn::EHttpCode HttpConn::parse_request_line(char* text)
 //解析http请求的一个头部信息
 HttpConn::EHttpCode HttpConn::parse_headers(char* text)
 {
-    LOG_INFO("%s:%s:%d %s", __FILE__, __func__, __LINE__, text)
+    LOG_INFO("%s:%d %s", __func__, __LINE__, text)
 
     if (text[0] == '\0') {
         if (m_content_length != 0) {
@@ -314,7 +315,7 @@ HttpConn::EHttpCode HttpConn::parse_headers(char* text)
 //判断http请求是否被完整读入
 HttpConn::EHttpCode HttpConn::parse_content(char* text)
 {
-    LOG_INFO("%s:%s:%d %s", __FILE__, __func__, __LINE__, text)
+    LOG_INFO("%s:%d %s", __func__, __LINE__, text)
 
     if (m_read_idx >= (m_content_length + m_checked_idx)) {
         text[m_content_length] = '\0';
@@ -336,7 +337,7 @@ HttpConn::EHttpCode HttpConn::process_read()
            || ((line_status = parse_line()) == LINE_OK))
     {
         text = get_line();
-        LOG_INFO("%s:%s:%d %s", __FILE__, __func__, __LINE__, text)
+        LOG_INFO("%s:%d %s", __func__, __LINE__, text)
         m_start_line = m_checked_idx;
         switch (m_check_state) {
             case EPacketHeader::CHECK_STATE_REQUESTLINE: {
@@ -372,9 +373,9 @@ HttpConn::EHttpCode HttpConn::do_request()
 {
     strcpy(m_real_file, doc_root);
     int len = strlen(doc_root);
-    // printf("m_url:%s\n", m_url);
-    const char* p = strrchr(m_url, '/');
 
+    const char* p = strrchr(m_url, '/');
+    LOG_INFO("%s:%d: %s", __func__, __LINE__, m_url)
     //处理cgi
     if (cgi == 1 && (*(p + 1) == '2' || *(p + 1) == '3')) {
         //根据标志判断是登录检测还是注册检测
@@ -434,7 +435,7 @@ HttpConn::EHttpCode HttpConn::do_request()
                 strcpy(m_url, "/logError.html");
         }
     }
-
+    LOG_INFO("%c", *(p + 1))
     if (*(p + 1) == '0') {
         char* m_url_real = (char*)malloc(sizeof(char) * 200);
         strcpy(m_url_real, "/register.html");
@@ -468,6 +469,7 @@ HttpConn::EHttpCode HttpConn::do_request()
     } else
         strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
 
+    LOG_INFO("%s:%d %s", __func__, __LINE__, m_real_file)
     if (stat(m_real_file, &m_file_stat) < 0)
         return NO_RESOURCE;
 
@@ -538,6 +540,8 @@ bool HttpConn::write()
 }
 bool HttpConn::add_response(const char* format, ...)
 {
+    LOG_INFO("%s:%d", __func__, __LINE__);
+
     if (m_write_idx >= WRITE_BUFFER_SIZE)
         return false;
     va_list arg_list;
@@ -553,7 +557,7 @@ bool HttpConn::add_response(const char* format, ...)
     m_write_idx += len;
     va_end(arg_list);
 
-    LOG_INFO("request:%s", m_write_buf);
+    LOG_INFO("%s:%d %s", __func__, __LINE__, m_write_buf);
 
     return true;
 }
@@ -588,6 +592,7 @@ bool HttpConn::add_content(const char* content)
 }
 bool HttpConn::process_write(EHttpCode ret)
 {
+    LOG_INFO("%s:%d %d", __func__, __LINE__, static_cast<int>(ret))
     switch (ret) {
         case INTERNAL_ERROR: {
             add_status_line(500, error_500_title);
@@ -631,6 +636,8 @@ bool HttpConn::process_write(EHttpCode ret)
         default:
             return false;
     }
+    LOG_INFO("%s:%d", __func__, __LINE__)
+
     m_iv[0].iov_base = m_write_buf;
     m_iv[0].iov_len = m_write_idx;
     m_iv_count = 1;
@@ -639,11 +646,15 @@ bool HttpConn::process_write(EHttpCode ret)
 }
 void HttpConn::process()
 {
+    LOG_INFO("%s:%d", __func__, __LINE__)
+
     EHttpCode read_ret = process_read();
     if (read_ret == NO_REQUEST) {
         modfd(m_epollfd, m_sockfd, EPOLLIN, m_TRIGMode);
         return;
     }
+    LOG_INFO("%s:%d", __func__, __LINE__)
+
     bool write_ret = process_write(read_ret);
     if (!write_ret) {
         close_conn();
