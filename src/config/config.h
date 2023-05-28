@@ -1,17 +1,17 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "tinywebserver/global.h"
 #include "webserver.h"
 
-using namespace std;
-
+BEGIN_TINYWEBSERVER_NAMESPACE
 class Config
 {
-public:
+  public:
     Config();
-    ~Config(){};
+    ~Config() {};
 
-    void parse_arg(int argc, char*argv[]);
+    void parse_arg(int argc, char* argv[]);
 
     //端口号
     int PORT;
@@ -22,10 +22,10 @@ public:
     //触发组合模式
     int TRIGMode;
 
-    //listenfd触发模式
+    // listenfd触发模式
     int LISTENTrigmode;
 
-    //connfd触发模式
+    // connfd触发模式
     int CONNTrigmode;
 
     //优雅关闭链接
@@ -43,5 +43,5 @@ public:
     //并发模型选择
     int actor_model;
 };
-
+END_TINYWEBSERVER_NAMESPACE
 #endif
